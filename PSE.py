@@ -2,6 +2,9 @@
 import pygame.mixer as mixer
 #import time
 import sys
+import os
+import csv
+# import numpy as np
 import random
 from PyQt5.uic import loadUi
 #from PyQt5 import QtWidgets, QtGui
@@ -9,11 +12,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QAbstractItemView, QFileD
 
 
 ref_filename = "STIMULI/ref.wav"
-#stimuli = ["STIMULI/63HZ -23LUFS -6dB.wav", "STIMULI/125HZ -23LUFS +6dB.wav"]
 
-def dbToLin(num):
-    x = 10**(num/20)
-    return x
 
 class Stimulus():
     def __init__(self):
@@ -51,6 +50,8 @@ class TestWindow(QMainWindow):
         self.stopButton.clicked.connect(self.stopPlayback)
         self.volumeControl.valueChanged.connect(self.setVolume)
         self.nextButton.clicked.connect(self.nextTest)
+        self.plusVolume.clicked.connect(self.raiseVolume)
+        self.minusVolume.clicked.connect(self.lowerVolume)
 
     def playRef(self):
         mixer.stop()
@@ -68,6 +69,24 @@ class TestWindow(QMainWindow):
         #print(self.volumeControl.value() / 10)
         #print(self.stim.get_volume())
         self.stim.set_volume(volume)
+    
+    def raiseVolume(self):
+        increment = 2
+        vc = self.volumeControl.value()
+        if vc <= 120:
+            self.volumeControl.setValue(vc + increment)
+        else:
+            self.volumeControl.setValue(120)
+        self.setVolume()
+        
+    def lowerVolume(self):
+        increment = -2
+        vc = self.volumeControl.value()
+        if vc >= -120:
+            self.volumeControl.setValue(vc + increment)
+        else:
+            self.volumeControl.setValue(-120)
+        self.setVolume()
     
     def nextTest(self):
         mixer.stop()
@@ -91,12 +110,32 @@ class TestWindow(QMainWindow):
         options = QFileDialog.Options()
         # Save File dialog
         filename, _ = QFileDialog.getSaveFileName(self, 'Save as... File', default_name, filter=file_types, options=options)
-    
-    
-        # self.Next=TestWindow(self.testNumber+1)
-        # self.Next.show()
-        # self.close()
-    
+        
+        f=["f [Hz]"]
+        offset=["Offset [dB]"]
+        uc=["User correction [dB]"]
+        diff=["Difference [dB]"]
+        for stim in self.stimuli:
+            f.append(stim.boostFrequency)
+            offset.append(stim.offset)
+            uc.append(stim.userCorrection)
+            diff.append(stim.offset + stim.userCorrection)
+            
+        with open(filename, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows([f, offset, uc, diff])
+
+            
+def dbToLin(num):
+    x = 10**(num/20)
+    return x
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
 stimuli = []
 frequencies = [63, 125, 4000, 8000]
 offsets = [6, 4, -4, -6]
