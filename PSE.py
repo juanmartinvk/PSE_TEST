@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 import pygame.mixer as mixer
-#import time
 import sys
 import os
 import csv
-# import numpy as np
 import random
 from PyQt5.uic import loadUi
-#from PyQt5 import QtWidgets, QtGui
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog
 
@@ -186,8 +183,10 @@ class TestWindow(QMainWindow):
 
 stimuli = []
 frequencies = [63, 125, 4000, 8000]
-offsets = [6, 4, -4, -6]
+possible_offsets = [3, 4, 5, 6]
+
 for f in frequencies:
+    offsets = [random.choice(possible_offsets), - random.choice(possible_offsets)]
     for offset in offsets:
         stim = Stimulus()
         stim.boostFrequency = f
