@@ -8,11 +8,29 @@ import csv
 import random
 from PyQt5.uic import loadUi
 #from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QMainWindow, QApplication, QAbstractItemView, QFileDialog, QListWidgetItem, QErrorMessage
+from PyQt5 import QtCore
+from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog
+
+#QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True) #enable highdpi scaling
+QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True) #use highdpi icons
+os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 
-ref_filename = "STIMULI/ref.wav"
+ref_filename = resource_path("STIMULI/ref.wav")
 
+def dbToLin(num):
+    x = 10**(num/20)
+    return x
 
 class Stimulus():
     def __init__(self):
@@ -27,13 +45,17 @@ class TestWindow(QMainWindow):
         super(TestWindow, self).__init__()
         
         # Load designed UI
-        loadUi("./GUI/pse_gui.ui",self)
+        loadUi(resource_path("./GUI/pse_gui.ui"),self)
         mixer.init()
+        
+        self.setWindowTitle("Test de percepción subjetiva")
         
         self.stimuli=stimuli
         self.testNumber = 1
         self.stimIndex=0
         self.csvPath=""
+        self.started = False
+        self.finished=False
         
         self.offset = self.stimuli[self.stimIndex].offset
         self.initVolume = -18
@@ -41,7 +63,7 @@ class TestWindow(QMainWindow):
         self.ref.set_volume(dbToLin(self.initVolume))
         self.stim = mixer.Sound(self.stimuli[self.stimIndex].filename)
         self.stim.set_volume(dbToLin(self.initVolume + self.offset))
-        self.testNumLabel.setText("Test "+str(self.testNumber)+"/"+str(len(stimuli)))
+        
         
         
         #Button bindings
@@ -90,19 +112,51 @@ class TestWindow(QMainWindow):
     
     def nextTest(self):
         mixer.stop()
-        self.stimuli[self.stimIndex].userCorrection = self.volumeControl.value()/10
         
-        if self.testNumber == len(self.stimuli):
+        if self.started == False:
+            self.started = True
+            self.testNumLabel.setText("Test "+str(self.testNumber)+"/"+str(len(stimuli)))
+            self.nextButton.setText("Siguiente")
+            self.labelVolume.setText("Volumen")
+            self.labelNext.setText("Una vez que sientas que los audios están sonando al mismo volumen, hacé click en Siguiente para pasar a la próxima comparación.")
+            self.labelAudio2.setText("Ajustá el volumen de este audio para que suene al mismo nivel que el Audio 1.")
+            self.labelAudio1.setText("Escuchá este audio todas las veces que quieras, y compará su volumen con el del Audio 2. No es necesario que lo escuches siempre completo.")
+            self.audioBox2.setEnabled(True)
+            self.volumeControl.setEnabled(True)
+            self.plusVolume.setEnabled(True)
+            self.minusVolume.setEnabled(True)
+            self.audioBox2.setTitle("Audio 2")
+        
+        elif self.finished == True:
             self.exportData()
             self.close()
+        
         else:
-            self.stimIndex += 1
-            self.testNumber += 1
-            self.offset = self.stimuli[self.stimIndex].offset
-            self.stim = mixer.Sound(self.stimuli[self.stimIndex].filename)
-            self.stim.set_volume(dbToLin(self.initVolume + self.offset))
-            self.volumeControl.setValue(0)
-            self.testNumLabel.setText("Test "+str(self.testNumber)+"/"+str(len(self.stimuli)))
+            self.stimuli[self.stimIndex].userCorrection = self.volumeControl.value()/10
+
+            if self.testNumber == len(self.stimuli):
+                self.finished = True
+                self.nextButton.setText("Exportar")
+                self.playButton1.setEnabled(False)
+                self.playButton2.setEnabled(False)
+                self.stopButton.setEnabled(False)
+                self.audioBox1.setTitle("")
+                self.audioBox2.setTitle("")
+                self.audioBox2.setEnabled(False)
+                self.labelAudio2.setText("")
+                self.labelNext.setText("")
+                self.labelStop.setText("")
+                self.testNumLabel.setText("¡Muchas Gracias!")
+                self.labelAudio1.setText("Hacé click en Exportar para guardar los datos de tu test. No olvides adjuntar el archivo nuevamente en el Google Forms.")
+                
+            else:
+                self.stimIndex += 1
+                self.testNumber += 1
+                self.offset = self.stimuli[self.stimIndex].offset
+                self.stim = mixer.Sound(self.stimuli[self.stimIndex].filename)
+                self.stim.set_volume(dbToLin(self.initVolume + self.offset))
+                self.volumeControl.setValue(0)
+                self.testNumLabel.setText("Test "+str(self.testNumber)+"/"+str(len(self.stimuli)))
             
     def exportData(self):
         file_types = "CSV (*.csv)"
@@ -119,21 +173,15 @@ class TestWindow(QMainWindow):
             f.append(stim.boostFrequency)
             offset.append(stim.offset)
             uc.append(stim.userCorrection)
-            diff.append(stim.offset + stim.userCorrection)
+            diff.append(round(stim.offset + stim.userCorrection, 1))
             
         with open(filename, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows([f, offset, uc, diff])
 
             
-def dbToLin(num):
-    x = 10**(num/20)
-    return x
 
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path)
+
 
 
 stimuli = []
@@ -144,7 +192,7 @@ for f in frequencies:
         stim = Stimulus()
         stim.boostFrequency = f
         stim.offset = offset
-        stim.filename="STIMULI/"+str(f)+".wav"
+        stim.filename=resource_path("STIMULI/"+str(f)+".wav")
         stimuli.append(stim)
 
 random.shuffle(stimuli)
