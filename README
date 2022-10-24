@@ -1,0 +1,4 @@
+Linea para generar el ejecutable para Linux:
+```
+docker run -v "$(pwd):/src" -e "PLATFORMS=linux" fydeinc/pyinstaller --noconfirm --windowed --add-data "./GUI:./GUI" --add-data "./STIMULI:./STIMULI"  "./PSE.py" --exclude-module scipy --exclude-module numpy --exclude-module mkl
+```
